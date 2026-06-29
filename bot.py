@@ -67,7 +67,7 @@ if __name__ == "__main__":
     now = datetime.now(tz)
     
     # Hedef saati 00:11 olarak ayarla
-    start_time = now.replace(hour=0, minute=13, second=0, microsecond=0)
+    start_time = now.replace(hour=0, minute=29, second=0, microsecond=0)
     
     # Kodu yüklediğinde saat 00:11'i geçmişse zamanlayıcıyı hemen 1 dakika sonrasına kurar
     if start_time < now:
