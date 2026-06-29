@@ -50,6 +50,7 @@ def generate_and_post_tweet():
             "Sadece tweet metnini döndür, başında veya sonunda başka açıklama olmasın."
         )
 
+        # Not: Güncel gündeme erişim için modelin arama (grounding) yeteneğinin açık olması önerilir.
         response = model.generate_content(prompt)
         tweet_text = response.text.strip()
 
@@ -65,15 +66,26 @@ def generate_and_post_tweet():
         print(f"Bir hata oluştu: {e}")
 
 if __name__ == "__main__":
-    print("Bot başlatıldı... İlk tweet gönderiliyor.")
-    # Bot ilk açıldığında hemen bir kez çalışsın
-    generate_and_post_tweet()
+    tz = pytz.timezone('Europe/Istanbul')
+    
+    # İlk başlangıç zamanını bugün saat 23:16 olarak ayarlıyoruz
+    start_time = datetime.now(tz).replace(hour=23, minute=16, second=0, microsecond=0)
+    
+    print(f"Bot başlatıldı... İlk tweet {start_time.strftime('%H:%M')} saatinde gönderilecek ve ardından her 85 dakikada bir tekrarlanacak.")
 
-    # Zamanlayıcıyı ayarla (2 saatte bir çalışacak şekilde)
-    scheduler = BlockingScheduler(timezone='Europe/Istanbul')
-    scheduler.add_job(generate_and_post_tweet, 'interval', hours=2)
+    # Zamanlayıcıyı ayarla
+    scheduler = BlockingScheduler(timezone=tz)
+    
+    # 85 dakikada bir çalışacak ve ilk olarak 23:16'da tetiklenecek şekilde yapılandırıldı
+    scheduler.add_job(
+        generate_and_post_tweet, 
+        'interval', 
+        minutes=85, 
+        start_date=start_time
+    )
     
     try:
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
         print("Bot durduruldu.")
+
