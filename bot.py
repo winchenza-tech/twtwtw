@@ -47,7 +47,7 @@ def generate_and_post_tweet():
         )
 
         response = client_gemini.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.5-flash',
             contents=prompt,
         )
         tweet_text = response.text.strip()
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     now = datetime.now(tz)
     
     # Hedef saati 00:11 olarak ayarla
-    start_time = now.replace(hour=0, minute=11, second=0, microsecond=0)
+    start_time = now.replace(hour=0, minute=13, second=0, microsecond=0)
     
     # Kodu yüklediğinde saat 00:11'i geçmişse zamanlayıcıyı hemen 1 dakika sonrasına kurar
     if start_time < now:
