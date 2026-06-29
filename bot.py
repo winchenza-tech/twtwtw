@@ -1,6 +1,5 @@
 import os
-import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 import tweepy
 from google import genai
@@ -8,25 +7,33 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 
 # 1. Ortam Değişkenlerini Yükle
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-TWITTER_OAUTH2_ACCESS_TOKEN = os.getenv("TWITTER_OAUTH2_ACCESS_TOKEN")
+TWITTER_API_KEY = os.getenv("TWITTER_API_KEY")
+TWITTER_API_SECRET = os.getenv("TWITTER_API_SECRET")
+TWITTER_ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN")
+TWITTER_ACCESS_SECRET = os.getenv("TWITTER_ACCESS_SECRET")
 
-# 2. API Bağlantılarını Başlat
+# 2. İstemcileri Başlat
 client_gemini = genai.Client(api_key=GEMINI_API_KEY)
 
-# En güncel ve resmi OAuth 2.0 v2 İstemcisi
-twitter_client = tweepy.Client(bearer_token=TWITTER_OAUTH2_ACCESS_TOKEN)
+# Kesintisiz bağlantı sağlayan klasik 4 anahtarlı yapı (Read/Write izinli)
+twitter_client = tweepy.Client(
+    consumer_key=TWITTER_API_KEY,
+    consumer_secret=TWITTER_API_SECRET,
+    access_token=TWITTER_ACCESS_TOKEN,
+    access_token_secret=TWITTER_ACCESS_SECRET
+)
 
 def generate_and_post_tweet():
     tz = pytz.timezone('Europe/Istanbul')
     now = datetime.now(tz)
     current_hour = now.hour
 
-    # Gece 01:00 ile 10:00 arası tweet atmama kontrolü
+    # Gece 01:00 ile 10:00 arası sessizlik kontrolü
     if 1 <= current_hour < 10:
-        print(f"[{now.strftime('%Y-%m-%d %H:%M:%S')}] Saat {current_hour}:00. Gece sessizlik modu aktif, tweet atılmadı.")
+        print(f"[{now.strftime('%H:%M:%S')}] Saat {current_hour}:00. Gece sessizlik modu aktif, tweet atılmadı.")
         return
 
-    print(f"[{now.strftime('%Y-%m-%d %H:%M:%S')}] Gündem taranıyor ve tweet hazırlanıyor...")
+    print(f"[{now.strftime('%H:%M:%S')}] Gündem taranıyor ve tweet hazırlanıyor...")
 
     try:
         prompt = (
@@ -40,7 +47,7 @@ def generate_and_post_tweet():
         )
 
         response = client_gemini.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-1.5-flash',
             contents=prompt,
         )
         tweet_text = response.text.strip()
@@ -48,7 +55,7 @@ def generate_and_post_tweet():
         if tweet_text.startswith('"') and tweet_text.endswith('"'):
             tweet_text = tweet_text[1:-1]
 
-        # Twitter API v2 ile Tweet Paylaşımı
+        # Tweeti gönder
         twitter_client.create_tweet(text=tweet_text)
         print(f"Tweet başarıyla paylaşıldı:\n👉 {tweet_text}")
 
@@ -57,11 +64,17 @@ def generate_and_post_tweet():
 
 if __name__ == "__main__":
     tz = pytz.timezone('Europe/Istanbul')
+    now = datetime.now(tz)
     
-    # Bugünün tarihini alıp saati 23:23'e kuruyoruz
-    start_time = datetime.now(tz).replace(hour=23, minute=59, second=0, microsecond=0)
+    # Hedef saati 00:11 olarak ayarla
+    start_time = now.replace(hour=0, minute=11, second=0, microsecond=0)
     
-    print(f"Bot başlatıldı... İlk zamanlama ayarı: {start_time.strftime('%H:%M')} -> Tekrar: 85 dakikada bir.")
+    # Kodu yüklediğinde saat 00:11'i geçmişse zamanlayıcıyı hemen 1 dakika sonrasına kurar
+    if start_time < now:
+        start_time = now + timedelta(minutes=1)
+        print(f"Saat 00:11 geçtiği için telafi olarak ilk tweet {start_time.strftime('%H:%M:%S')} saatinde atılacak.")
+    else:
+        print(f"Bot başlatıldı... İlk tweet saati tam: {start_time.strftime('%H:%M')} -> Tekrar: 85 dakikada bir.")
 
     scheduler = BlockingScheduler(timezone=tz)
     scheduler.add_job(
