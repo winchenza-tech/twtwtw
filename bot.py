@@ -16,7 +16,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # 2. API Bağlantılarını Başlat
 # Gemini Entegrasyonu
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
+model = genai.GenerativeModel("gemini-2.5-flash")
 
 # Twitter API v2 İstemcisi
 twitter_client = tweepy.Client(
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     tz = pytz.timezone('Europe/Istanbul')
     
     # İlk başlangıç zamanını bugün saat 23:16 olarak ayarlıyoruz
-    start_time = datetime.now(tz).replace(hour=23, minute=19, second=0, microsecond=0)
+    start_time = datetime.now(tz).replace(hour=23, minute=23, second=0, microsecond=0)
     
     print(f"Bot başlatıldı... İlk tweet {start_time.strftime('%H:%M')} saatinde gönderilecek ve ardından her 85 dakikada bir tekrarlanacak.")
 
