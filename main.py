@@ -1,0 +1,79 @@
+import os
+import time
+from datetime import datetime
+import pytz
+import tweepy
+import google.generativeai as genai
+from apscheduler.schedulers.blocking import BlockingScheduler
+
+# 1. Ortam Değişkenlerini Yükle
+TWITTER_API_KEY = os.getenv("TWITTER_API_KEY")
+TWITTER_API_SECRET = os.getenv("TWITTER_API_SECRET")
+TWITTER_ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN")
+TWITTER_ACCESS_SECRET = os.getenv("TWITTER_ACCESS_SECRET")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# 2. API Bağlantılarını Başlat
+# Gemini Entegrasyonu
+genai.configure(api_key=GEMINI_API_KEY)
+model = genai.GenerativeModel("gemini-1.5-flash")
+
+# Twitter API v2 İstemcisi
+twitter_client = tweepy.Client(
+    consumer_key=TWITTER_API_KEY,
+    consumer_secret=TWITTER_API_SECRET,
+    access_token=TWITTER_ACCESS_TOKEN,
+    access_token_secret=TWITTER_ACCESS_SECRET
+)
+
+def generate_and_post_tweet():
+    tz = pytz.timezone('Europe/Istanbul')
+    now = datetime.now(tz)
+    current_hour = now.hour
+
+    # Gece 01:00 ile 10:00 arası tweet atmama kontrolü
+    if 1 <= current_hour < 10:
+        print(f"[{now.strftime('%Y-%m-%d %H:%M:%S')}] Saat {current_hour}:00. Gece sessizlik modu aktif, tweet atılmadı.")
+        return
+
+    print(f"[{now.strftime('%Y-%m-%d %H:%M:%S')}] Gündem taranıyor ve tweet hazırlanıyor...")
+
+    try:
+        # X Free API ile trendleri çekmek sınırlandırıldığı için, Gemini'ye güncel arama/bilgi yeteneğini kullanmasını söylüyoruz.
+        prompt = (
+            "Şu anki gerçek Türkiye ve dünya gündemini, sosyal medyada yapay veya bot hesaplarca şişirilmemiş, "
+            "insanların gerçekten konuştuğu somut ve gerçek konuları analiz et. "
+            "Bu konulardan biri hakkında; son derece esprili, muzip, ironik, akıl dolu ve zeki bir tweet üret. "
+            "Kural 1: Tweet kesinlikle 280 karakteri geçmesin. "
+            "Kural 2: Yapay zeka gibi kokmasın, samimi ve sarkastik bir insan yazmış gibi olsun. "
+            "Kural 3: Hashtag (#) kullanma veya çok nadir, espriye dahilse kullan. "
+            "Sadece tweet metnini döndür, başında veya sonunda başka açıklama olmasın."
+        )
+
+        response = model.generate_content(prompt)
+        tweet_text = response.text.strip()
+
+        # Tırnak işaretleri vb. temizlikler
+        if tweet_text.startswith('"') and tweet_text.endswith('"'):
+            tweet_text = tweet_text[1:-1]
+
+        # Twitter'da Paylaş
+        twitter_client.create_tweet(text=tweet_text)
+        print(f"Tweet başarıyla paylaşıldı:\n👉 {tweet_text}")
+
+    except Exception as e:
+        print(f"Bir hata oluştu: {e}")
+
+if __name__ == "__main__":
+    print("Bot başlatıldı... İlk tweet gönderiliyor.")
+    # Bot ilk açıldığında hemen bir kez çalışsın
+    generate_and_post_tweet()
+
+    # Zamanlayıcıyı ayarla (2 saatte bir çalışacak şekilde)
+    scheduler = BlockingScheduler(timezone='Europe/Istanbul')
+    scheduler.add_job(generate_and_post_tweet, 'interval', hours=2)
+    
+    try:
+        scheduler.start()
+    except (KeyboardInterrupt, SystemExit):
+        print("Bot durduruldu.")
