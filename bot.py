@@ -3,7 +3,8 @@ import time
 from datetime import datetime
 import pytz
 import tweepy
-import google.generativeai as genai
+# Yeni kütüphane import edildi
+from google import genai
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 # 1. Ortam Değişkenlerini Yükle
@@ -14,9 +15,8 @@ TWITTER_ACCESS_SECRET = os.getenv("TWITTER_ACCESS_SECRET")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # 2. API Bağlantılarını Başlat
-# Gemini Entegrasyonu
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-2.5-flash")
+# Yeni nesil Gemini İstemcisi başlatma yöntemi
+client_gemini = genai.Client(api_key=GEMINI_API_KEY)
 
 # Twitter API v2 İstemcisi
 twitter_client = tweepy.Client(
@@ -39,7 +39,6 @@ def generate_and_post_tweet():
     print(f"[{now.strftime('%Y-%m-%d %H:%M:%S')}] Gündem taranıyor ve tweet hazırlanıyor...")
 
     try:
-        # X Free API ile trendleri çekmek sınırlandırıldığı için, Gemini'ye güncel arama/bilgi yeteneğini kullanmasını söylüyoruz.
         prompt = (
             "Şu anki gerçek Türkiye ve dünya gündemini, sosyal medyada yapay veya bot hesaplarca şişirilmemiş, "
             "insanların gerçekten konuştuğu somut ve gerçek konuları analiz et. "
@@ -50,11 +49,13 @@ def generate_and_post_tweet():
             "Sadece tweet metnini döndür, başında veya sonunda başka açıklama olmasın."
         )
 
-        # Not: Güncel gündeme erişim için modelin arama (grounding) yeteneğinin açık olması önerilir.
-        response = model.generate_content(prompt)
+        # Yeni kütüphaneye göre içerik üretimi (gemini-2.5 veya gemini-1.5-flash kullanılabilir)
+        response = client_gemini.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
         tweet_text = response.text.strip()
 
-        # Tırnak işaretleri vb. temizlikler
         if tweet_text.startswith('"') and tweet_text.endswith('"'):
             tweet_text = tweet_text[1:-1]
 
@@ -68,15 +69,13 @@ def generate_and_post_tweet():
 if __name__ == "__main__":
     tz = pytz.timezone('Europe/Istanbul')
     
-    # İlk başlangıç zamanını bugün saat 23:16 olarak ayarlıyoruz
-    start_time = datetime.now(tz).replace(hour=23, minute=23, second=0, microsecond=0)
+    # Başlangıç zamanını 23:23 olarak ayarlıyoruz
+    start_time = datetime.now(tz).replace(hour=23, minute=36, second=0, microsecond=0)
     
-    print(f"Bot başlatıldı... İlk tweet {start_time.strftime('%H:%M')} saatinde gönderilecek ve ardından her 85 dakikada bir tekrarlanacak.")
+    print(f"Bot başlatıldı... İlk zamanlama ayarı: {start_time.strftime('%H:%M')} -> Tekrar: 85 dakikada bir.")
 
-    # Zamanlayıcıyı ayarla
     scheduler = BlockingScheduler(timezone=tz)
     
-    # 85 dakikada bir çalışacak ve ilk olarak 23:16'da tetiklenecek şekilde yapılandırıldı
     scheduler.add_job(
         generate_and_post_tweet, 
         'interval', 
@@ -88,4 +87,3 @@ if __name__ == "__main__":
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
         print("Bot durduruldu.")
-
