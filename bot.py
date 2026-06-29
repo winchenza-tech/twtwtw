@@ -69,7 +69,7 @@ if __name__ == "__main__":
     tz = pytz.timezone('Europe/Istanbul')
     
     # İlk başlangıç zamanını bugün saat 23:16 olarak ayarlıyoruz
-    start_time = datetime.now(tz).replace(hour=23, minute=16, second=0, microsecond=0)
+    start_time = datetime.now(tz).replace(hour=23, minute=19, second=0, microsecond=0)
     
     print(f"Bot başlatıldı... İlk tweet {start_time.strftime('%H:%M')} saatinde gönderilecek ve ardından her 85 dakikada bir tekrarlanacak.")
 
