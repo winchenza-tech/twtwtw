@@ -1,21 +1,26 @@
 import os
+import json
 from datetime import datetime, timedelta
 import pytz
 import tweepy
+import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from google import genai
-from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
 
-# 1. Ortam Değişkenlerini Yükle
+# 1. Ortam Değişkenleri
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 TWITTER_API_KEY = os.getenv("TWITTER_API_KEY")
 TWITTER_API_SECRET = os.getenv("TWITTER_API_SECRET")
 TWITTER_ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN")
 TWITTER_ACCESS_SECRET = os.getenv("TWITTER_ACCESS_SECRET")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-# 2. İstemcileri Başlat
+# 2. İstemciler
 client_gemini = genai.Client(api_key=GEMINI_API_KEY)
+tg_bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# Kesintisiz bağlantı sağlayan klasik 4 anahtarlı yapı (Read/Write izinli)
 twitter_client = tweepy.Client(
     consumer_key=TWITTER_API_KEY,
     consumer_secret=TWITTER_API_SECRET,
@@ -23,69 +28,134 @@ twitter_client = tweepy.Client(
     access_token_secret=TWITTER_ACCESS_SECRET
 )
 
-def generate_and_post_tweet():
+# Üretilen tweetleri geçici hafızada tutacağımız liste
+current_tweets = []
+
+def fetch_and_send_to_telegram():
+    global current_tweets
     tz = pytz.timezone('Europe/Istanbul')
     now = datetime.now(tz)
     current_hour = now.hour
 
-    # Gece 01:00 ile 10:00 arası sessizlik kontrolü
     if 1 <= current_hour < 10:
-        print(f"[{now.strftime('%H:%M:%S')}] Saat {current_hour}:00. Gece sessizlik modu aktif, tweet atılmadı.")
+        print(f"[{now.strftime('%H:%M:%S')}] Sessizlik modu, işlem atlandı.")
         return
 
-    print(f"[{now.strftime('%H:%M:%S')}] Gündem taranıyor ve tweet hazırlanıyor...")
+    print("Gemini'den 4 seçenekli tweet isteniyor...")
 
     try:
-        prompt = (
-            "Şu anki gerçek Türkiye ve dünya gündemini, sosyal medyada yapay veya bot hesaplarca şişirilmemiş, "
-            "insanların gerçekten konuştuğu somut ve gerçek konuları analiz et. "
-            "Bu konulardan biri hakkında; son derece esprili, muzip, ironik, akıl dolu ve zeki bir tweet üret. "
-            "Kural 1: Tweet kesinlikle 20 kelimeyi geçmesin. "
-            "Kural 2: Yapay zeka gibi kokmasın, samimi ve sarkastik bir insan yazmış gibi olsun. "
-            "Kural 3: Hashtag (#) kullanma veya çok nadir, espriye dahilse kullan. "
-            "Sadece tweet metnini döndür, başında veya sonunda başka açıklama olmasın."
-            "Sadece tweet metnini döndür, başında veya sonunda başka açıklama olmasın."
+       prompt = (
+            "Şu anki gerçek Türkiye ve dünya gündemini analiz et. Sadece trollerin veya bot hesapların şişirdiği "
+            "suni etiketleri (hashtag) değil, sokaktaki gerçek insanın konuştuğu organik ve somut konuları baz al. "
+            "Bu konulardan beslenerek TAM 4 FARKLI tweet seçeneği üret.\n\n"
+            "KARAKTER VE TON: Çok zeki, gündemi yakından takip eden, muzip, hafif alaycı ve ince ironiler yapan bir insansın. "
+            "Kesinlikle yapay zeka gibi 'robotik', 'didaktik' veya 'aşırı coşkulu' kalıplar kullanma. 'Şunu fark ettiniz mi?', "
+            "'İşte günün gerçeği' gibi bayat girişlerden ve klişe esprilerden uzak dur. Sıradan ama sivri dilli bir insanın "
+            "anlık aklına gelen, umursamaz ama akıl dolu bir düşüncesi gibi yaz.\n\n"
+            "KESİN KURALLAR:\n"
+            "1. KESİNLİKLE hashtag (#) kullanma.\n"
+            "2. Her bir tweet metni KESİNLİKLE EN FAZLA 19 KELİME uzunluğunda olmalıdır. (Kısa, net ve vurucu ol).\n"
+            "3. ÇIKTI FORMATI: Sadece ve sadece geçerli bir JSON dizisi (array) döndür. Başka hiçbir açıklama, sohbet veya markdown (```json vb.) kullanma.\n\n"
+            'Örnek Çıktı: ["birinci zeki tweet metni", "ikinci ironik tweet metni", "üçüncü muzip tweet", "dördüncü sivri tweet"]'
         )
 
         response = client_gemini.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-1.5-flash',
             contents=prompt,
         )
-        tweet_text = response.text.strip()
+        
+        # Markdown kod blokları geldiyse temizle
+        clean_text = response.text.strip().replace("```json", "").replace("```", "").strip()
+        current_tweets = json.loads(clean_text)
 
-        if tweet_text.startswith('"') and tweet_text.endswith('"'):
-            tweet_text = tweet_text[1:-1]
+        # Telegram Mesajı Hazırlığı
+        msg_text = "✨ Ceminay Gündemi Taradı! Hangisini X'te paylaşalım?\n\n"
+        for i, t in enumerate(current_tweets):
+            msg_text += f"*{i+1}. Seçenek:*\n{t}\n\n"
 
-        # Tweeti gönder
-        twitter_client.create_tweet(text=tweet_text)
-        print(f"Tweet başarıyla paylaşıldı:\n👉 {tweet_text}")
+        # Butonlar
+        markup = InlineKeyboardMarkup()
+        markup.row(
+            InlineKeyboardButton("1️⃣", callback_data="tweet_0"),
+            InlineKeyboardButton("2️⃣", callback_data="tweet_1"),
+            InlineKeyboardButton("3️⃣", callback_data="tweet_2"),
+            InlineKeyboardButton("4️⃣", callback_data="tweet_3")
+        )
+        markup.row(InlineKeyboardButton("❌ Hiçbirini Beğenmedim (İptal)", callback_data="cancel"))
+
+        tg_bot.send_message(TELEGRAM_CHAT_ID, msg_text, reply_markup=markup, parse_mode="Markdown")
+        print("Telegram'a seçenekler gönderildi, onay bekleniyor...")
 
     except Exception as e:
-        print(f"Bir hata oluştu: {e}")
+        error_msg = f"⚠️ Gemini'den veri çekerken hata oluştu:\n{e}"
+        print(error_msg)
+        tg_bot.send_message(TELEGRAM_CHAT_ID, error_msg)
+
+
+# Telegram Buton Tıklamalarını Dinleyen Fonksiyon
+@tg_bot.callback_query_handler(func=lambda call: True)
+def handle_query(call):
+    global current_tweets
+    
+    if call.data == "cancel":
+        tg_bot.edit_message_text(
+            "❌ *İptal edildi.* Bu periyotta tweet atılmayacak.", 
+            call.message.chat.id, 
+            call.message.message_id, 
+            parse_mode="Markdown"
+        )
+        return
+
+    if call.data.startswith("tweet_"):
+        idx = int(call.data.split("_")[1])
+        selected_tweet = current_tweets[idx]
+
+        try:
+            # X'e gönder
+            twitter_client.create_tweet(text=selected_tweet)
+            
+            # Telegram mesajını güncelle
+            success_msg = f"✅ *BAŞARIYLA PAYLAŞILDI!*\n\n{selected_tweet}"
+            tg_bot.edit_message_text(
+                success_msg, 
+                call.message.chat.id, 
+                call.message.message_id, 
+                parse_mode="Markdown"
+            )
+            print("Kullanıcı seçimi yaptı, tweet atıldı.")
+            
+        except Exception as e:
+            tg_bot.edit_message_text(
+                f"⚠️ *X'e gönderirken hata oluştu:*\n{e}", 
+                call.message.chat.id, 
+                call.message.message_id, 
+                parse_mode="Markdown"
+            )
+
 
 if __name__ == "__main__":
     tz = pytz.timezone('Europe/Istanbul')
     now = datetime.now(tz)
     
-    # Hedef saati 00:11 olarak ayarla
-    start_time = now.replace(hour=7, minute=50, second=0, microsecond=0)
+    start_time = now.replace(hour=0, minute=15, second=0, microsecond=0)
     
-    # Kodu yüklediğinde saat 00:11'i geçmişse zamanlayıcıyı hemen 1 dakika sonrasına kurar
     if start_time < now:
         start_time = now + timedelta(minutes=1)
-        print(f"Saat 00:11 geçtiği için telafi olarak ilk tweet {start_time.strftime('%H:%M:%S')} saatinde atılacak.")
-    else:
-        print(f"Bot başlatıldı... İlk tweet saati tam: {start_time.strftime('%H:%M')} -> Tekrar: 85 dakikada bir.")
+        
+    print(f"Ceminay Onay Sistemi Başladı! İlk üretim saati: {start_time.strftime('%H:%M')}")
 
-    scheduler = BlockingScheduler(timezone=tz)
+    # Zamanlayıcıyı arka planda çalışacak şekilde ayarlıyoruz (BackgroundScheduler)
+    scheduler = BackgroundScheduler(timezone=tz)
     scheduler.add_job(
-        generate_and_post_tweet, 
+        fetch_and_send_to_telegram, 
         'interval', 
         minutes=85, 
         start_date=start_time
     )
-    
+    scheduler.start()
+
+    # Telegram botunu dinlemeye başla (Bu satır programı sürekli açık tutar)
     try:
-        scheduler.start()
+        tg_bot.infinity_polling()
     except (KeyboardInterrupt, SystemExit):
         print("Bot durduruldu.")
