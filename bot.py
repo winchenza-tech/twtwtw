@@ -1,5 +1,6 @@
 import os
 import json
+import re
 from datetime import datetime, timedelta
 import pytz
 import tweepy
@@ -7,7 +8,6 @@ import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from google import genai
 from google.genai import types
-from pydantic import BaseModel  # Yapılandırılmış çıktı için eklendi
 from apscheduler.schedulers.background import BackgroundScheduler
 
 # 1. Ortam Değişkenleri
@@ -32,10 +32,6 @@ twitter_client = tweepy.Client(
 
 current_tweets = []
 
-# Gemini'nin teknik olarak dışına çıkamayacağı JSON şablonunu tanımlıyoruz
-class TweetResponse(BaseModel):
-    tweets: list[str]
-
 def fetch_and_send_to_telegram():
     global current_tweets
     tz = pytz.timezone('Europe/Istanbul')
@@ -46,44 +42,58 @@ def fetch_and_send_to_telegram():
         print(f"[{now.strftime('%H:%M:%S')}] Sessizlik modu aktif, işlem atlandı.")
         return
 
-    print("Gemini 2.5 Flash kesin şablon yapısıyla gündemi tarıyor...")
+    print("Gemini 2.5 Flash hibrit yöntemle gündemi tarıyor...")
 
     try:
-        prompt = (
-            "Google üzerinde şu an Türkiye sosyal medyasında (X/Twitter, Ekşi Sözlük vb.) çok etkileşim almış, "
-            "insanların beğendiği, paylaştığı popüler ve güncel 15 farklı tweet/post örneğini veya mizah formatını incele.\n\n"
-            "GÖREV:\n"
-            "Bu popüler postların mizahi yapısını, konuşma tarzını, alaycı üslubunu ve kelime oyunlarını analiz et. "
-            "Onların tarzından beslenerek, ama KESİNLİKLE aynısı olmayan, şu anki güncel Türkiye/dünya gündemine uyarlanmış "
-            "TAM 6 FARKLI tweet seçeneği üret.\n\n"
-            "KRİTİK TARZ VE ÜSLUP KURALLARI:\n"
-            "- Ekonomi, dolar, enflasyon gibi artık klişeleşmiş ve herkesin her saniye yazdığı konuları (muy büyük bir kırılma yoksa) PAS GEÇ. "
-            "Sosyal medyanın gerçek geyiklerine, popüler kültür tartışmalarına, spor veya absürt magazin olaylarına odaklan.\n"
-            "- Bir yapay zeka gibi 'didaktik', 'öğretici' veya 'fark ettiniz mi?' tarzı girişler KESİNLİKLE yasaktır.\n"
-            "- Cümleler tıpkı gerçek bir insanın X'te yazdığı gibi olsun: İntro yok, hazırlık yok, direkt konunun ortasından, "
-            "hafif umursamaz, aşırı zeki ve muzip bir vuruşla başlasın. Kelimeleri özenle seçilmiş, rafine bir mizah olsun.\n\n"
-            "KESİN SINIRLAR:\n"
-            "1. KESİNLİKLE hashtag (#) kullanma.\n"
-            "2. Her bir tweet metni KESİNLİKLE EN FAZLA 19 KELİME uzunluğunda olmalıdır."
+        # Karakter ve format kurallarını sistem talimatı olarak veriyoruz (Hata riskini sıfırlar)
+        system_instruction = (
+            "Sen çok zeki, gündemi yakından takip eden, muzip, hafif alaycı ve ince ironiler yapan bir X (Twitter) kullanıcısısın.\n"
+            "GÖREVİN: Gönderilen prompt doğrultusunda TAM 6 FARKLI tweet seçeneği üretmek.\n"
+            "ÜSLUP KURALLARI:\n"
+            "- Kesinlikle yapay zeka olduğunu belli eden 'didaktik', 'öğretici' veya 'fark ettiniz mi?' gibi bayat giriş yapıları kullanma.\n"
+            "- LinkedIn tarzı aşırı hevesli, 'bot kokan' esprilerden uzak dur. Cümlelerin sanki bir insan o an sinirlenip veya eğlenip "
+            "klavyeye rastgele fırlatmış gibi organik, doğal ve samimi olsun.\n"
+            "- KESİNLİKLE hashtag (#) kullanma.\n"
+            "- Her bir tweet metni KESİNLİKLE EN FAZLA 19 KELİME uzunluğunda olmalıdır.\n"
+            "ÇIKTI FORMATI:\n"
+            "Cevabın SADECE VE SADECE geçerli bir JSON array (liste) formatında olmalıdır. Başka hiçbir açıklama, "
+            "giriş veya kapanış yazısı ekleme. Metinlerin içindeki tırnak işaretlerini ters eğik çizgi (\\\") ile kaçır.\n"
+            'Örnek Çıktı: ["tweet1", "tweet2", "tweet3", "tweet4", "tweet5", "tweet6"]'
         )
 
-        # Gemini 2.5'in Structured Outputs (Yapılandırılmış Çıktı) motorunu tetikliyoruz
+        prompt = (
+            "Google üzerinde şu an Türkiye sosyal medyasında (X/Twitter, Ekşi Sözlük vb.) çok etkileşim almış, "
+            "insanların beğendiği, paylaştığı popüler ve güncel 15 farklı tweet/post örneğini veya mizah formatını incele.\n"
+            "Bu formatların yapısını analiz et ve bunlardan beslenerek şu anki güncel Türkiye/dünya gündemine uyarlanmış "
+            "özgün 6 seçenek üret. Ekonomi, dolar, enflasyon gibi artık klişeleşmiş ve herkesin her saniye yazdığı konuları "
+            "(çok büyük bir kırılma yoksa) PAS GEÇ. Sosyal medyanın gerçek geyiklerine, popüler kültür tartışmalarına, spor "
+            "veya absürt magazin olaylarına odaklan."
+        )
+
+        # Çakışmayı çözmek için response_schema kaldırıldı, sistem talimatı ve arama motoru birleştirildi
         response = client_gemini.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt,
             config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
                 tools=[{"google_search": {}}],
-                response_mime_type="application/json",
-                response_schema=TweetResponse,  # Pydantic modelimizi buraya bağlıyoruz
             )
         )
         
-        # Gelen veri teknik olarak mükemmel bir JSON olduğu için doğrudan okuyoruz
-        data = json.loads(response.text.strip())
-        current_tweets = data["tweets"]
+        # Olası ```json ... ``` bloklarını temizleyen regex koruması
+        raw_text = response.text.strip()
+        json_match = re.search(r'\[.*\]', raw_text, re.DOTALL)
+        
+        if json_match:
+            clean_text = json_match.group(0)
+        else:
+            clean_text = raw_text
+
+        # JSON verisini güvenli bir şekilde oku
+        current_tweets = json.loads(clean_text)
 
         # Telegram bilgilendirme mesajı
-        msg_text = "✨ *Ceminay 6 Yeni Format Getirdi!*\n\n"
+        msg_text = "✨ *Ceminay Canlı Formatları Taradı!*\n\n"
         msg_text += "🚀 Direkt paylaşmak için butonları kullanabilirsin.\n"
         msg_text += "✏️ *Düzenlemek istersen:* Sohbete sadece düzenlemek istediğin tweetin numarasını (örn: 2) yazıp yolla.\n\n"
         
@@ -105,7 +115,7 @@ def fetch_and_send_to_telegram():
         markup.row(InlineKeyboardButton("❌ Hiçbirini Beğenmedim (İptal)", callback_data="cancel"))
 
         tg_bot.send_message(TELEGRAM_CHAT_ID, msg_text, reply_markup=markup, parse_mode="Markdown")
-        print("Telegram'a 6 hatasız seçenek gönderildi.")
+        print("Telegram'a 6 hibrit seçenek başarıyla gönderildi.")
 
     except Exception as e:
         error_msg = f"⚠️ Gemini'den veri çekerken hata oluştu:\n{e}"
@@ -198,7 +208,7 @@ if __name__ == "__main__":
     
     start_time = now + timedelta(seconds=10)
         
-    print(f"Ceminay Sistem Koruma Modu Başladı! İlk üretim saati: {start_time.strftime('%H:%M:%S')}")
+    print(f"Ceminay Çakışma Çözücü Aktif! İlk üretim saati: {start_time.strftime('%H:%M:%S')}")
 
     scheduler = BackgroundScheduler(timezone=tz)
     scheduler.add_job(
@@ -210,7 +220,6 @@ if __name__ == "__main__":
     scheduler.start()
 
     try:
-        # Telegram eski biriken mesajları yok saysın diye temiz bir başlangıç yapıyoruz
         tg_bot.delete_webhook(drop_pending_updates=True)
         tg_bot.infinity_polling(allowed_updates=["message", "callback_query"])
     except (KeyboardInterrupt, SystemExit):
