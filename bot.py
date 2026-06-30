@@ -6,7 +6,7 @@ import tweepy
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from google import genai
-from google.genai import types  # Canlı arama için eklendi
+from google.genai import types
 from apscheduler.schedulers.background import BackgroundScheduler
 
 # 1. Ortam Değişkenleri
@@ -41,41 +41,42 @@ def fetch_and_send_to_telegram():
         print(f"[{now.strftime('%H:%M:%S')}] Sessizlik modu aktif, işlem atlandı.")
         return
 
-    print("Gemini 2.5 Flash canlı arama yaparak gündemi tarıyor...")
+    print("Gemini 2.5 Flash sosyal medyadaki viral formatları tarıyor...")
 
     try:
+        # Prompt, yapay zeka kalıplarını kırmak için tamamen baştan yazıldı
         prompt = (
-            "Şu an Türkiye internetinde, sosyal medyasında (X, Ekşi Sözlük, Instagram) insanların GERÇEKTEN konuştuğu "
-            "en güncel, somut, popüler kültür, spor, magazin veya absürt olayları Google üzerinde ara ve analiz et.\n\n"
-            "ÖNEMLİ KISITLAMA: Sürekli aynı şeyleri döndürme. Eğer çok ekstrem bir gelişme yoksa EKONOMİ, DOLAR, ENFLASYON, "
-            "MAAŞLAR gibi bayatlamış ve herkesin sürekli yazdığı klişe konuları PAS GEÇ. Odak noktan güncel popüler tartışmalar, "
-            "sosyal medya geyikleri ve absürt yerel haberler olsun.\n\n"
-            "Bu konulardan beslenerek TAM 4 FARKLI tweet seçeneği üret.\n\n"
-            "TON VE ÜSLUP FİLTRESİ:\n"
-            "- Zeki, hafif umursamaz, alaycı ve ince ironiler yapan gerçek bir X (Twitter) kullanıcısı gibi yaz.\n"
-            "- KESİNLİKLE yapay zeka olduğunu belli eden 'didaktik', 'öğretici' veya 'fark ettiniz mi?' gibi bayat giriş yapıları kullanma.\n"
-            "- LinkedIn tarzı aşırı hevesli, 'bot kokan' esprilerden uzak dur. Cümlelerin sanki bir insan o an sinirlenip veya eğlenip "
-            "klavyeye rastgele fırlatmış gibi organik, doğal ve samimi olsun.\n\n"
-            "KESİN KURALLAR:\n"
+            "Google üzerinde şu an Türkiye sosyal medyasında (X/Twitter, Ekşi Sözlük vb.) çok etkileşim almış, "
+            "insanların beğendiği, paylaştığı popüler ve güncel 15 farklı tweet/post örneğini veya mizah formatını incele.\n\n"
+            "GÖREV:\n"
+            "Bu popüler postların mizahi yapısını, konuşma tarzını, alaycı üslubunu ve kelime oyunlarını analiz et. "
+            "Onların tarzından beslenerek, ama KESİNLİKLE aynısı olmayan, şu anki güncel Türkiye/dünya gündemine uyarlanmış "
+            "TAM 4 FARKLI tweet seçeneği üret.\n\n"
+            "KRİTİK TARZ VE ÜSLUP KURALLARI:\n"
+            "- Ekonomi, dolar, enflasyon gibi artık klişeleşmiş ve herkesin her saniye yazdığı konuları (çok büyük bir kırılma yoksa) PAS GEÇ. "
+            "Sosyal medyanın gerçek geyiklerine, popüler kültür tartışmalarına, spor veya absürt magazin olaylarına odaklan.\n"
+            "- Bir yapay zeka gibi 'didaktik', 'öğretici' veya 'fark ettiniz mi?' tarzı girişler KESİNLİKLE yasaktır.\n"
+            "- Cümleler tıpkı gerçek bir insanın X'te yazdığı gibi olsun: İntro yok, hazırlık yok, direkt konunun ortasından, "
+            "hafif umursamaz, aşırı zeki ve muzip bir vuruşla başlasın. Kelimeleri özenle seçilmiş, rafine bir mizah olsun.\n\n"
+            "KESİN SINIRLAR:\n"
             "1. KESİNLİKLE hashtag (#) kullanma.\n"
             "2. Her bir tweet metni KESİNLİKLE EN FAZLA 19 KELİME uzunluğunda olmalıdır.\n"
-            "3. ÇIKTI FORMATI: Sadece ve sadece geçerli bir JSON dizisi (array) döndür. Başka hiçbir açıklama veya markdown (```json) kullanma.\n\n"
-            'Örnek Çıktı: ["birinci zeki tweet", "ikinci ironik tweet", "üçüncü muzip tweet", "dördüncü sivri tweet"]'
+            "3. ÇIKTI FORMATI: Sadece ve sadece geçerli bir JSON dizisi (array) döndür. Başka hiçbir açıklama, markdown (```json) kullanma.\n\n"
+            'Örnek Çıktı: ["birinci zeki tweet", "ikinci viral tarzda tweet", "üçüncü muzip tweet", "dördüncü özgün tweet"]'
         )
 
-        # Gemini'ye Google Search (Canlı Arama) yeteneği veriliyor
         response = client_gemini.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt,
             config=types.GenerateContentConfig(
-                tools=[{"google_search": {}}],  # Canlı arama motoru aktif!
+                tools=[{"google_search": {}}],
             )
         )
         
         clean_text = response.text.strip().replace("```json", "").replace("```", "").strip()
         current_tweets = json.loads(clean_text)
 
-        msg_text = "✨ Ceminay CANLI Gündemi Taradı! Hangisini X'te paylaşalım?\n\n"
+        msg_text = "✨ Ceminay Viral Formatları Taradı! Hangisini X'te paylaşalım?\n\n"
         for i, t in enumerate(current_tweets):
             msg_text += f"*{i+1}. Seçenek:*\n{t}\n\n"
 
@@ -89,7 +90,7 @@ def fetch_and_send_to_telegram():
         markup.row(InlineKeyboardButton("❌ Hiçbirini Beğenmedim (İptal)", callback_data="cancel"))
 
         tg_bot.send_message(TELEGRAM_CHAT_ID, msg_text, reply_markup=markup, parse_mode="Markdown")
-        print("Telegram'a canlı arama sonuçları gönderildi.")
+        print("Telegram'a viral formatlı alternatifler gönderildi.")
 
     except Exception as e:
         error_msg = f"⚠️ Gemini'den veri çekerken hata oluştu:\n{e}"
@@ -140,7 +141,7 @@ if __name__ == "__main__":
     
     start_time = now + timedelta(seconds=10)
         
-    print(f"Ceminay Onay Sistemi Başladı! (Canlı Google Arama Aktif) İlk üretim saati: {start_time.strftime('%H:%M:%S')}")
+    print(f"Ceminay Onay Sistemi Başladı! (Viral Analiz Aktif) İlk üretim saati: {start_time.strftime('%H:%M:%S')}")
 
     scheduler = BackgroundScheduler(timezone=tz)
     scheduler.add_job(
