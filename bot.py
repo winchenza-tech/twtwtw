@@ -42,35 +42,29 @@ def fetch_and_send_to_telegram():
         print(f"[{now.strftime('%H:%M:%S')}] Sessizlik modu aktif, işlem atlandı.")
         return
 
-    print("Gemini 2.5 Flash hibrit yöntemle gündemi tarıyor...")
+    print("Gemini 2.5 Flash anonim fenomen (shitposter) modunda gündemi tarıyor...")
 
     try:
-        # Karakter ve format kurallarını sistem talimatı olarak veriyoruz (Hata riskini sıfırlar)
         system_instruction = (
-            "Sen çok zeki, gündemi yakından takip eden, muzip, hafif alaycı ve ince ironiler yapan bir X (Twitter) kullanıcısısın.\n"
-            "GÖREVİN: Gönderilen prompt doğrultusunda TAM 6 FARKLI tweet seçeneği üretmek.\n"
-            "ÜSLUP KURALLARI:\n"
-            "- Kesinlikle yapay zeka olduğunu belli eden 'didaktik', 'öğretici' veya 'fark ettiniz mi?' gibi bayat giriş yapıları kullanma.\n"
-            "- LinkedIn tarzı aşırı hevesli, 'bot kokan' esprilerden uzak dur. Cümlelerin sanki bir insan o an sinirlenip veya eğlenip "
-            "klavyeye rastgele fırlatmış gibi organik, doğal ve samimi olsun.\n"
+            "Sen çok takipçili, anonim, umursamaz, her şeyle dalga geçen ve ince ironi yapan bir X (Twitter) fenomenisin. "
+            "GÖREVİN: Tamamen organik, yapay zeka kokmayan 6 farklı tweet üretmek.\n\n"
+            "TWITTER (X) JARGONU VE ÜSLUP KURALLARI:\n"
+            "- 'Şunu fark ettiniz mi?', 'Görünüşe göre', 'Meğer', 'İşte günün olayı' gibi yapay zeka kalıpları KESİNLİKLE YASAK.\n"
+            "- Aforizma kasma, felsefe yapma. Sadece olayın en saçma detayını bul ve tek cümleyle lafı sok.\n"
+            "- CÜMLE YAPISI: TDK kurallarını boşver.  Cümle sonlarına nokta koymamak daha organik durur. "
+            "Ünlem (!) işaretini veya emojileri kullanma (ya da sadece ironi için çok nadir kullan).\n"
+            "- İnsanlar seni zekan, vurdumduymazlığın ve konulara olan iğneleyici bakış açın için takip ediyor.\n"
             "- KESİNLİKLE hashtag (#) kullanma.\n"
-            "- Her bir tweet metni KESİNLİKLE EN FAZLA 19 KELİME uzunluğunda olmalıdır.\n"
+            "- Her bir tweet metni KESİNLİKLE EN FAZLA 22 KELİME uzunluğunda olmalıdır.\n\n"
             "ÇIKTI FORMATI:\n"
-            "Cevabın SADECE VE SADECE geçerli bir JSON array (liste) formatında olmalıdır. Başka hiçbir açıklama, "
-            "giriş veya kapanış yazısı ekleme. Metinlerin içindeki tırnak işaretlerini ters eğik çizgi (\\\") ile kaçır.\n"
-            'Örnek Çıktı: ["tweet1", "tweet2", "tweet3", "tweet4", "tweet5", "tweet6"]'
-        )
+            "Cevabın SADECE VE SADECE geçerli bir JSON array (liste) formatında olmalıdır. Başka hiçbir açıklama ekleme.\n")
 
         prompt = (
-            "Google üzerinde şu an Türkiye sosyal medyasında (X/Twitter, Ekşi Sözlük vb.) çok etkileşim almış, "
-            "insanların beğendiği, paylaştığı popüler ve güncel 15 farklı tweet/post örneğini veya mizah formatını incele.\n"
-            "Bu formatların yapısını analiz et ve bunlardan beslenerek şu anki güncel Türkiye/dünya gündemine uyarlanmış "
-            "özgün 6 seçenek üret. Ekonomi, dolar, enflasyon gibi artık klişeleşmiş ve herkesin her saniye yazdığı konuları "
-            "(çok büyük bir kırılma yoksa) PAS GEÇ. Sosyal medyanın gerçek geyiklerine, popüler kültür tartışmalarına, spor "
-            "veya absürt magazin olaylarına odaklan."
+            "Google üzerinden şu an Türkiye sosyal medyasında gerçekten konuşulan (X/Twitter, Ekşi Sözlük, popüler magazin/spor olayı) "
+            "güncel konuları tarat. İnsanların linçlediği, güldüğü veya tartıştığı absürt durumları bul.\n"
+            "shitpost yapan zeki bir hesabın klavyesinden çıkmış gibi 6 farklı tweet yaz. Kısa, noktalama işaretsiz, küçük harfli ve organik olsun."
         )
 
-        # Çakışmayı çözmek için response_schema kaldırıldı, sistem talimatı ve arama motoru birleştirildi
         response = client_gemini.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt,
@@ -80,7 +74,6 @@ def fetch_and_send_to_telegram():
             )
         )
         
-        # Olası ```json ... ``` bloklarını temizleyen regex koruması
         raw_text = response.text.strip()
         json_match = re.search(r'\[.*\]', raw_text, re.DOTALL)
         
@@ -89,18 +82,15 @@ def fetch_and_send_to_telegram():
         else:
             clean_text = raw_text
 
-        # JSON verisini güvenli bir şekilde oku
         current_tweets = json.loads(clean_text)
 
-        # Telegram bilgilendirme mesajı
-        msg_text = "✨ *Ceminay Canlı Formatları Taradı!*\n\n"
+        msg_text = "✨ *Ceminay Fenomen Modunda Taradı!*\n\n"
         msg_text += "🚀 Direkt paylaşmak için butonları kullanabilirsin.\n"
         msg_text += "✏️ *Düzenlemek istersen:* Sohbete sadece düzenlemek istediğin tweetin numarasını (örn: 2) yazıp yolla.\n\n"
         
         for i, t in enumerate(current_tweets):
             msg_text += f"*{i+1}. Seçenek:*\n{t}\n\n"
 
-        # 6 Butonlu tasarım
         markup = InlineKeyboardMarkup()
         markup.row(
             InlineKeyboardButton("1️⃣", callback_data="tweet_0"),
@@ -115,7 +105,7 @@ def fetch_and_send_to_telegram():
         markup.row(InlineKeyboardButton("❌ Hiçbirini Beğenmedim (İptal)", callback_data="cancel"))
 
         tg_bot.send_message(TELEGRAM_CHAT_ID, msg_text, reply_markup=markup, parse_mode="Markdown")
-        print("Telegram'a 6 hibrit seçenek başarıyla gönderildi.")
+        print("Telegram'a 6 fenomen tarzı seçenek gönderildi.")
 
     except Exception as e:
         error_msg = f"⚠️ Gemini'den veri çekerken hata oluştu:\n{e}"
@@ -208,7 +198,7 @@ if __name__ == "__main__":
     
     start_time = now + timedelta(seconds=10)
         
-    print(f"Ceminay Çakışma Çözücü Aktif! İlk üretim saati: {start_time.strftime('%H:%M:%S')}")
+    print(f"Ceminay Fenomen Modu Aktif! İlk üretim saati: {start_time.strftime('%H:%M:%S')}")
 
     scheduler = BackgroundScheduler(timezone=tz)
     scheduler.add_job(
