@@ -2,3 +2,4 @@ tweepy
 google-genai
 apscheduler
 pytz
+pyTelegramBotAPI
