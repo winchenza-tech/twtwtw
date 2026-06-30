@@ -37,14 +37,15 @@ def fetch_and_send_to_telegram():
     now = datetime.now(tz)
     current_hour = now.hour
 
-    if 1 <= current_hour < 10:
-        print(f"[{now.strftime('%H:%M:%S')}] Sessizlik modu, işlem atlandı.")
+    # Gece 01:00 ile sabah 07:00 arası sessizlik kontrolü
+    if 1 <= current_hour < 7:
+        print(f"[{now.strftime('%H:%M:%S')}] Sessizlik modu (01:00 - 07:00 arası aktif), işlem atlandı.")
         return
 
-    print("Gemini'den 4 seçenekli tweet isteniyor...")
+    print("Gemini 2.5 Flash'tan 4 seçenekli tweet isteniyor...")
 
     try:
-       prompt = (
+        prompt = (
             "Şu anki gerçek Türkiye ve dünya gündemini analiz et. Sadece trollerin veya bot hesapların şişirdiği "
             "suni etiketleri (hashtag) değil, sokaktaki gerçek insanın konuştuğu organik ve somut konuları baz al. "
             "Bu konulardan beslenerek TAM 4 FARKLI tweet seçeneği üret.\n\n"
@@ -60,11 +61,11 @@ def fetch_and_send_to_telegram():
         )
 
         response = client_gemini.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.5-flash',
             contents=prompt,
         )
         
-        # Markdown kod blokları geldiyse temizle
+        # JSON dizisini temizleyip listeye çevirme
         clean_text = response.text.strip().replace("```json", "").replace("```", "").strip()
         current_tweets = json.loads(clean_text)
 
@@ -137,14 +138,12 @@ if __name__ == "__main__":
     tz = pytz.timezone('Europe/Istanbul')
     now = datetime.now(tz)
     
-    start_time = now.replace(hour=0, minute=15, second=0, microsecond=0)
-    
-    if start_time < now:
-        start_time = now + timedelta(minutes=1)
+    # Sunucu başlatıldıktan 10 saniye sonra ilk döngüyü hemen başlatır
+    start_time = now + timedelta(seconds=10)
         
-    print(f"Ceminay Onay Sistemi Başladı! İlk üretim saati: {start_time.strftime('%H:%M')}")
+    print(f"Ceminay Onay Sistemi Başladı! (Gemini 2.5 Flash) İlk üretim saati: {start_time.strftime('%H:%M:%S')}")
 
-    # Zamanlayıcıyı arka planda çalışacak şekilde ayarlıyoruz (BackgroundScheduler)
+    # Zamanlayıcı arka planda çalışır
     scheduler = BackgroundScheduler(timezone=tz)
     scheduler.add_job(
         fetch_and_send_to_telegram, 
@@ -154,7 +153,7 @@ if __name__ == "__main__":
     )
     scheduler.start()
 
-    # Telegram botunu dinlemeye başla (Bu satır programı sürekli açık tutar)
+    # Telegram botunu dinlemeye başla
     try:
         tg_bot.infinity_polling()
     except (KeyboardInterrupt, SystemExit):
