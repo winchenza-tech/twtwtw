@@ -6,6 +6,7 @@ import tweepy
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from google import genai
+from google.genai import types  # Canlı arama için eklendi
 from apscheduler.schedulers.background import BackgroundScheduler
 
 # 1. Ortam Değişkenleri
@@ -28,7 +29,6 @@ twitter_client = tweepy.Client(
     access_token_secret=TWITTER_ACCESS_SECRET
 )
 
-# Üretilen tweetleri geçici hafızada tutacağımız liste
 current_tweets = []
 
 def fetch_and_send_to_telegram():
@@ -37,44 +37,48 @@ def fetch_and_send_to_telegram():
     now = datetime.now(tz)
     current_hour = now.hour
 
-    # Gece 01:00 ile sabah 07:00 arası sessizlik kontrolü
     if 1 <= current_hour < 7:
-        print(f"[{now.strftime('%H:%M:%S')}] Sessizlik modu (01:00 - 07:00 arası aktif), işlem atlandı.")
+        print(f"[{now.strftime('%H:%M:%S')}] Sessizlik modu aktif, işlem atlandı.")
         return
 
-    print("Gemini 2.5 Flash'tan 4 seçenekli tweet isteniyor...")
+    print("Gemini 2.5 Flash canlı arama yaparak gündemi tarıyor...")
 
     try:
         prompt = (
-            "Şu anki gerçek Türkiye ve dünya gündemini analiz et. Sadece trollerin veya bot hesapların şişirdiği "
-            "suni etiketleri (hashtag) değil, sokaktaki gerçek insanın konuştuğu organik ve somut konuları baz al. "
+            "Şu an Türkiye internetinde, sosyal medyasında (X, Ekşi Sözlük, Instagram) insanların GERÇEKTEN konuştuğu "
+            "en güncel, somut, popüler kültür, spor, magazin veya absürt olayları Google üzerinde ara ve analiz et.\n\n"
+            "ÖNEMLİ KISITLAMA: Sürekli aynı şeyleri döndürme. Eğer çok ekstrem bir gelişme yoksa EKONOMİ, DOLAR, ENFLASYON, "
+            "MAAŞLAR gibi bayatlamış ve herkesin sürekli yazdığı klişe konuları PAS GEÇ. Odak noktan güncel popüler tartışmalar, "
+            "sosyal medya geyikleri ve absürt yerel haberler olsun.\n\n"
             "Bu konulardan beslenerek TAM 4 FARKLI tweet seçeneği üret.\n\n"
-            "KARAKTER VE TON: Çok zeki, gündemi yakından takip eden, muzip, hafif alaycı ve ince ironiler yapan bir insansın. "
-            "Kesinlikle yapay zeka gibi 'robotik', 'didaktik' veya 'aşırı coşkulu' kalıplar kullanma. 'Şunu fark ettiniz mi?', "
-            "'İşte günün gerçeği' gibi bayat girişlerden ve klişe esprilerden uzak dur. Sıradan ama sivri dilli bir insanın "
-            "anlık aklına gelen, umursamaz ama akıl dolu bir düşüncesi gibi yaz.\n\n"
+            "TON VE ÜSLUP FİLTRESİ:\n"
+            "- Zeki, hafif umursamaz, alaycı ve ince ironiler yapan gerçek bir X (Twitter) kullanıcısı gibi yaz.\n"
+            "- KESİNLİKLE yapay zeka olduğunu belli eden 'didaktik', 'öğretici' veya 'fark ettiniz mi?' gibi bayat giriş yapıları kullanma.\n"
+            "- LinkedIn tarzı aşırı hevesli, 'bot kokan' esprilerden uzak dur. Cümlelerin sanki bir insan o an sinirlenip veya eğlenip "
+            "klavyeye rastgele fırlatmış gibi organik, doğal ve samimi olsun.\n\n"
             "KESİN KURALLAR:\n"
             "1. KESİNLİKLE hashtag (#) kullanma.\n"
-            "2. Her bir tweet metni KESİNLİKLE EN FAZLA 19 KELİME uzunluğunda olmalıdır. (Kısa, net ve vurucu ol).\n"
-            "3. ÇIKTI FORMATI: Sadece ve sadece geçerli bir JSON dizisi (array) döndür. Başka hiçbir açıklama, sohbet veya markdown (```json vb.) kullanma.\n\n"
-            'Örnek Çıktı: ["birinci zeki tweet metni", "ikinci ironik tweet metni", "üçüncü muzip tweet", "dördüncü sivri tweet"]'
+            "2. Her bir tweet metni KESİNLİKLE EN FAZLA 19 KELİME uzunluğunda olmalıdır.\n"
+            "3. ÇIKTI FORMATI: Sadece ve sadece geçerli bir JSON dizisi (array) döndür. Başka hiçbir açıklama veya markdown (```json) kullanma.\n\n"
+            'Örnek Çıktı: ["birinci zeki tweet", "ikinci ironik tweet", "üçüncü muzip tweet", "dördüncü sivri tweet"]'
         )
 
+        # Gemini'ye Google Search (Canlı Arama) yeteneği veriliyor
         response = client_gemini.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[{"google_search": {}}],  # Canlı arama motoru aktif!
+            )
         )
         
-        # JSON dizisini temizleyip listeye çevirme
         clean_text = response.text.strip().replace("```json", "").replace("```", "").strip()
         current_tweets = json.loads(clean_text)
 
-        # Telegram Mesajı Hazırlığı
-        msg_text = "✨ Ceminay Gündemi Taradı! Hangisini X'te paylaşalım?\n\n"
+        msg_text = "✨ Ceminay CANLI Gündemi Taradı! Hangisini X'te paylaşalım?\n\n"
         for i, t in enumerate(current_tweets):
             msg_text += f"*{i+1}. Seçenek:*\n{t}\n\n"
 
-        # Butonlar
         markup = InlineKeyboardMarkup()
         markup.row(
             InlineKeyboardButton("1️⃣", callback_data="tweet_0"),
@@ -85,7 +89,7 @@ def fetch_and_send_to_telegram():
         markup.row(InlineKeyboardButton("❌ Hiçbirini Beğenmedim (İptal)", callback_data="cancel"))
 
         tg_bot.send_message(TELEGRAM_CHAT_ID, msg_text, reply_markup=markup, parse_mode="Markdown")
-        print("Telegram'a seçenekler gönderildi, onay bekleniyor...")
+        print("Telegram'a canlı arama sonuçları gönderildi.")
 
     except Exception as e:
         error_msg = f"⚠️ Gemini'den veri çekerken hata oluştu:\n{e}"
@@ -93,7 +97,6 @@ def fetch_and_send_to_telegram():
         tg_bot.send_message(TELEGRAM_CHAT_ID, error_msg)
 
 
-# Telegram Buton Tıklamalarını Dinleyen Fonksiyon
 @tg_bot.callback_query_handler(func=lambda call: True)
 def handle_query(call):
     global current_tweets
@@ -112,10 +115,7 @@ def handle_query(call):
         selected_tweet = current_tweets[idx]
 
         try:
-            # X'e gönder
             twitter_client.create_tweet(text=selected_tweet)
-            
-            # Telegram mesajını güncelle
             success_msg = f"✅ *BAŞARIYLA PAYLAŞILDI!*\n\n{selected_tweet}"
             tg_bot.edit_message_text(
                 success_msg, 
@@ -123,7 +123,7 @@ def handle_query(call):
                 call.message.message_id, 
                 parse_mode="Markdown"
             )
-            print("Kullanıcı seçimi yaptı, tweet atıldı.")
+            print("Tweet başarıyla paylaşıldı.")
             
         except Exception as e:
             tg_bot.edit_message_text(
@@ -138,12 +138,10 @@ if __name__ == "__main__":
     tz = pytz.timezone('Europe/Istanbul')
     now = datetime.now(tz)
     
-    # Sunucu başlatıldıktan 10 saniye sonra ilk döngüyü hemen başlatır
     start_time = now + timedelta(seconds=10)
         
-    print(f"Ceminay Onay Sistemi Başladı! (Gemini 2.5 Flash) İlk üretim saati: {start_time.strftime('%H:%M:%S')}")
+    print(f"Ceminay Onay Sistemi Başladı! (Canlı Google Arama Aktif) İlk üretim saati: {start_time.strftime('%H:%M:%S')}")
 
-    # Zamanlayıcı arka planda çalışır
     scheduler = BackgroundScheduler(timezone=tz)
     scheduler.add_job(
         fetch_and_send_to_telegram, 
@@ -153,7 +151,6 @@ if __name__ == "__main__":
     )
     scheduler.start()
 
-    # Telegram botunu dinlemeye başla
     try:
         tg_bot.infinity_polling()
     except (KeyboardInterrupt, SystemExit):
