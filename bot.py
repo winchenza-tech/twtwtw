@@ -44,14 +44,14 @@ def fetch_and_send_to_telegram():
     print("Gemini 2.5 Flash sosyal medyadaki viral formatları tarıyor...")
 
     try:
-        # Prompt, yapay zeka kalıplarını kırmak için tamamen baştan yazıldı
+        # Prompt 6 Tweet için güncellendi
         prompt = (
             "Google üzerinde şu an Türkiye sosyal medyasında (X/Twitter, Ekşi Sözlük vb.) çok etkileşim almış, "
             "insanların beğendiği, paylaştığı popüler ve güncel 15 farklı tweet/post örneğini veya mizah formatını incele.\n\n"
             "GÖREV:\n"
             "Bu popüler postların mizahi yapısını, konuşma tarzını, alaycı üslubunu ve kelime oyunlarını analiz et. "
             "Onların tarzından beslenerek, ama KESİNLİKLE aynısı olmayan, şu anki güncel Türkiye/dünya gündemine uyarlanmış "
-            "TAM 4 FARKLI tweet seçeneği üret.\n\n"
+            "TAM 6 FARKLI tweet seçeneği üret.\n\n"
             "KRİTİK TARZ VE ÜSLUP KURALLARI:\n"
             "- Ekonomi, dolar, enflasyon gibi artık klişeleşmiş ve herkesin her saniye yazdığı konuları (çok büyük bir kırılma yoksa) PAS GEÇ. "
             "Sosyal medyanın gerçek geyiklerine, popüler kültür tartışmalarına, spor veya absürt magazin olaylarına odaklan.\n"
@@ -62,7 +62,7 @@ def fetch_and_send_to_telegram():
             "1. KESİNLİKLE hashtag (#) kullanma.\n"
             "2. Her bir tweet metni KESİNLİKLE EN FAZLA 19 KELİME uzunluğunda olmalıdır.\n"
             "3. ÇIKTI FORMATI: Sadece ve sadece geçerli bir JSON dizisi (array) döndür. Başka hiçbir açıklama, markdown (```json) kullanma.\n\n"
-            'Örnek Çıktı: ["birinci zeki tweet", "ikinci viral tarzda tweet", "üçüncü muzip tweet", "dördüncü özgün tweet"]'
+            'Örnek Çıktı: ["bir", "iki", "üç", "dört", "beş", "altı"]'
         )
 
         response = client_gemini.models.generate_content(
@@ -76,21 +76,30 @@ def fetch_and_send_to_telegram():
         clean_text = response.text.strip().replace("```json", "").replace("```", "").strip()
         current_tweets = json.loads(clean_text)
 
-        msg_text = "✨ Ceminay Viral Formatları Taradı! Hangisini X'te paylaşalım?\n\n"
+        # Telegram bilgilendirme mesajı güncellendi
+        msg_text = "✨ *Ceminay 6 Yeni Format Getirdi!*\n\n"
+        msg_text += "🚀 Direkt paylaşmak için butonları kullanabilirsin.\n"
+        msg_text += "✏️ *Düzenlemek istersen:* Sohbete sadece düzenlemek istediğin tweetin numarasını (örn: 2) yazıp yolla.\n\n"
+        
         for i, t in enumerate(current_tweets):
             msg_text += f"*{i+1}. Seçenek:*\n{t}\n\n"
 
+        # 6 Butonlu tasarım (İki satır)
         markup = InlineKeyboardMarkup()
         markup.row(
             InlineKeyboardButton("1️⃣", callback_data="tweet_0"),
             InlineKeyboardButton("2️⃣", callback_data="tweet_1"),
-            InlineKeyboardButton("3️⃣", callback_data="tweet_2"),
-            InlineKeyboardButton("4️⃣", callback_data="tweet_3")
+            InlineKeyboardButton("3️⃣", callback_data="tweet_2")
+        )
+        markup.row(
+            InlineKeyboardButton("4️⃣", callback_data="tweet_3"),
+            InlineKeyboardButton("5️⃣", callback_data="tweet_4"),
+            InlineKeyboardButton("6️⃣", callback_data="tweet_5")
         )
         markup.row(InlineKeyboardButton("❌ Hiçbirini Beğenmedim (İptal)", callback_data="cancel"))
 
         tg_bot.send_message(TELEGRAM_CHAT_ID, msg_text, reply_markup=markup, parse_mode="Markdown")
-        print("Telegram'a viral formatlı alternatifler gönderildi.")
+        print("Telegram'a 6 seçenek gönderildi.")
 
     except Exception as e:
         error_msg = f"⚠️ Gemini'den veri çekerken hata oluştu:\n{e}"
@@ -98,6 +107,7 @@ def fetch_and_send_to_telegram():
         tg_bot.send_message(TELEGRAM_CHAT_ID, error_msg)
 
 
+# Doğrudan Butona Tıklama (Gönderme) İşlemi
 @tg_bot.callback_query_handler(func=lambda call: True)
 def handle_query(call):
     global current_tweets
@@ -113,6 +123,12 @@ def handle_query(call):
 
     if call.data.startswith("tweet_"):
         idx = int(call.data.split("_")[1])
+        
+        # Eğer liste boşsa veya yeniden başlatılmışsa
+        if not current_tweets or idx >= len(current_tweets):
+            tg_bot.answer_callback_query(call.id, "⚠️ Bu tweetlerin süresi dolmuş veya liste bulunamadı.")
+            return
+
         selected_tweet = current_tweets[idx]
 
         try:
@@ -134,6 +150,48 @@ def handle_query(call):
                 parse_mode="Markdown"
             )
 
+# YENİ ÖZELLİK: Numarayı Yazarak Düzenleme Akışı
+@tg_bot.message_handler(func=lambda message: message.text.strip() in ["1", "2", "3", "4", "5", "6"])
+def handle_edit_request(message):
+    global current_tweets
+    if not current_tweets:
+        tg_bot.reply_to(message, "⚠️ Şu an düzenlenecek aktif bir tweet listesi yok.")
+        return
+        
+    idx = int(message.text.strip()) - 1
+    if idx >= len(current_tweets):
+        tg_bot.reply_to(message, "⚠️ Hatalı numara girdin.")
+        return
+        
+    selected_tweet = current_tweets[idx]
+    
+    # Kullanıcıdan yeni metni istiyoruz
+    msg = tg_bot.reply_to(
+        message, 
+        f"✏️ *{idx+1}. Seçeneği Düzenliyorsun!*\n\n"
+        f"Mevcut metin:\n`{selected_tweet}`\n\n"
+        f"Lütfen X'te paylaşılmasını istediğin **YENİ metni** buraya yazıp gönder. (İşlemi iptal etmek için sohbete 'iptal' yazabilirsin):", 
+        parse_mode="Markdown"
+    )
+    
+    # Kullanıcının vereceği bir sonraki mesajı "process_new_tweet" fonksiyonuna bağlıyoruz
+    tg_bot.register_next_step_handler(msg, process_new_tweet)
+
+def process_new_tweet(message):
+    if message.text.lower().strip() == 'iptal':
+        tg_bot.reply_to(message, "❌ Düzenleme işlemi iptal edildi.")
+        return
+        
+    new_text = message.text.strip()
+    
+    try:
+        # Yeni ve düzenlenmiş metni X'e gönderiyoruz
+        twitter_client.create_tweet(text=new_text)
+        tg_bot.reply_to(message, f"✅ *DÜZENLENMİŞ TWEET BAŞARIYLA PAYLAŞILDI!*\n\n{new_text}", parse_mode="Markdown")
+        print("Düzenlenmiş manuel tweet paylaşıldı.")
+    except Exception as e:
+        tg_bot.reply_to(message, f"⚠️ *X'e gönderirken hata oluştu:*\n{e}", parse_mode="Markdown")
+
 
 if __name__ == "__main__":
     tz = pytz.timezone('Europe/Istanbul')
@@ -141,7 +199,7 @@ if __name__ == "__main__":
     
     start_time = now + timedelta(seconds=10)
         
-    print(f"Ceminay Onay Sistemi Başladı! (Viral Analiz Aktif) İlk üretim saati: {start_time.strftime('%H:%M:%S')}")
+    print(f"Ceminay Editör Sistemi Başladı! (6 Tweet + Düzenleme Aktif) İlk üretim saati: {start_time.strftime('%H:%M:%S')}")
 
     scheduler = BackgroundScheduler(timezone=tz)
     scheduler.add_job(
