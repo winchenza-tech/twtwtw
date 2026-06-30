@@ -32,8 +32,12 @@ twitter_client = tweepy.Client(
 
 current_tweets = []
 
+# Burç Listesi ve Döngü Takipçisi
+ZODIAC_SIGNS = ["Koç", "Boğa", "İkizler", "Yengeç", "Aslan", "Başak", "Terazi", "Akrep", "Yay", "Oğlak", "Kova", "Balık"]
+zodiac_index = 0
+
 def fetch_and_send_to_telegram():
-    global current_tweets
+    global current_tweets, zodiac_index
     tz = pytz.timezone('Europe/Istanbul')
     now = datetime.now(tz)
     current_hour = now.hour
@@ -43,25 +47,33 @@ def fetch_and_send_to_telegram():
         print(f"[{now.strftime('%H:%M:%S')}] Sessizlik modu aktif, işlem atlandı.")
         return
 
-    print("Ceminay sevdiğin eski prompt ve canlı aramayla gündemi tarıyor...")
+    # Döngüdeki mevcut burcu alıyoruz
+    current_sign = ZODIAC_SIGNS[zodiac_index]
+    print(f"Ceminay {current_sign} burcu için esprili tweetler hazırlıyor...")
 
     try:
-        # Sistem çökmesin diye arka plandaki teknik JSON talimatı
+        # Teknik JSON yapısı
         system_instruction = (
             "ÇIKTI FORMATI: Uygulamanın bozulmaması için cevabın SADECE VE SADECE geçerli bir JSON array (liste) formatında olmalıdır. "
             "Başka hiçbir açıklama, giriş veya kapanış cümlesi ekleme.\n"
             'Örnek Çıktı: ["tweet 1", "tweet 2", "tweet 3", "tweet 4", "tweet 5", "tweet 6"]'
         )
 
-        # Düzenlenen eski başarılı promptun
+        # Yeni Burç Konseptli ve 30 Kelime Sınırlı Profesyonel Prompt
         prompt = (
-            "Şu anki gerçek Türkiye ve dünya gündemini, sosyal medyada yapay veya bot hesaplarca şişirilmemiş, "
-            "insanların gerçekten konuştuğu somut ve gerçek konuları analiz et. "
-            "Bu konulardan beslenerek; son derece esprili, muzip, ironik, akıl dolu ve zeki TAM 6 FARKLI tweet üret.\n\n"
-            "Kural 1: Her bir tweet kesinlikle EN FAZLA 21 KELİME olsun.\n"
-            "Kural 2: Yapay zeka gibi kokmasın, samimi ve sarkastik bir insan yazmış gibi olsun.\n"
-            "Kural 3: Hashtag (#) kullanma veya çok nadir, espriye dahilse kullan.\n"
-            "Sadece tweet metnilerini döndür, başında veya sonunda başka açıklama olmasın."
+            f"Hedef Burç: {current_sign}.\n\n"
+            f"Bu burcun (kadını veya erkeği fark etmez) karakteristik, baskın bir özelliği hakkında; "
+            f"son derece esprili, muzip, hafif laf sokmalı ama o burçtan biri okuduğunda acayip havalanacak, "
+            f"kendini dev aynasında görecek ve gururlanacak cinsten TAM 6 FARKLI tweet seçeneği üret.\n\n"
+            f"MİZAH VE TARZ REHBERİ:\n"
+            f"Örnek Model: 'Bir Akrep kadınıyla bilgi yarışına girmek, donanımsız bir bilgisayarın internete bağlanmaya çalışması gibidir; "
+            f"ne kadar çabalarsanız çabalayın, o her zaman bir adım öndedir ve siz sadece dönen bir yükleme simgesi gibi kalakalırsınız.'\n"
+            f"Tweetler tıpkı bu örnekteki gibi zeki benzetmeler,  günlük metaforlar içermeli, lafı gediğine koymalıdır.\n\n"
+            f"KESİN KURALLAR:\n"
+            f"1. Her bir tweet kesinlikle EN FAZLA 30 KELİME olmalıdır. (Kısa, net ve vurucu tut).\n"
+            f"2. Yapay zeka kalıpları kullanma, tamamen samimi, sarkastik ve organik bir insan yazmış gibi olsun.\n"
+            f"3. KESİNLİKLE hashtag (#) kullanma.\n"
+            f"4. Sadece tweet metinlerini döndür."
         )
 
         response = client_gemini.models.generate_content(
@@ -69,7 +81,7 @@ def fetch_and_send_to_telegram():
             contents=prompt,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
-                tools=[{"google_search": {}}],
+                # Not: Burç özellikleri statik olduğu için yanıltıcı haber getirmemesi adına Google Search kapatıldı.
             )
         )
         
@@ -83,8 +95,8 @@ def fetch_and_send_to_telegram():
 
         current_tweets = json.loads(clean_text)
 
-        # Telegram menüsü
-        msg_text = "✨ *Ceminay Seçenekleri Hazırladı!*\n\n"
+        # Telegram bilgilendirme menüsü
+        msg_text = f"🔮 *Ceminay [{current_sign}] Burcu İçin Seçenekleri Hazırladı!*\n\n"
         msg_text += "🚀 Paylaşmak için butonları kullanabilirsin.\n"
         msg_text += "✏️ *Düzenlemek istersen:* Sohbete sadece tweetin numarasını (örn: 2) yazıp yolla.\n\n"
         
@@ -106,7 +118,10 @@ def fetch_and_send_to_telegram():
         markup.row(InlineKeyboardButton("❌ Hiçbirini Beğenmedim (İptal)", callback_data="cancel"))
 
         tg_bot.send_message(TELEGRAM_CHAT_ID, msg_text, reply_markup=markup, parse_mode="Markdown")
-        print("Telegram'a 6 eski usul seçenek başarıyla gönderildi.")
+        print(f"Telegram'a {current_sign} burcu için 6 adet seçenek gönderildi.")
+
+        # Bir sonraki periyot için burç indeksini bir artırıyoruz
+        zodiac_index = (zodiac_index + 1) % len(ZODIAC_SIGNS)
 
     except Exception as e:
         error_msg = f"⚠️ Gemini'den veri çekerken hata oluştu:\n{e}"
@@ -197,15 +212,17 @@ if __name__ == "__main__":
     tz = pytz.timezone('Europe/Istanbul')
     now = datetime.now(tz)
     
+    # Sunucu başlatıldıktan 10 saniye sonra ilk burç (Koç) için üretimi tetikler
     start_time = now + timedelta(seconds=10)
         
-    print(f"Ceminay Klasik Modda Başladı! İlk üretim saati: {start_time.strftime('%H:%M:%S')}")
+    print(f"Ceminay Astro-Shitpost Sistemi Başladı! İlk üretim saati: {start_time.strftime('%H:%M:%S')}")
 
+    # Zamanlayıcı 55 dakikaya kuruldu
     scheduler = BackgroundScheduler(timezone=tz)
     scheduler.add_job(
         fetch_and_send_to_telegram, 
         'interval', 
-        minutes=85, 
+        minutes=55, 
         start_date=start_time
     )
     scheduler.start()
