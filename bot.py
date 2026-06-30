@@ -38,31 +38,30 @@ def fetch_and_send_to_telegram():
     now = datetime.now(tz)
     current_hour = now.hour
 
+    # Sabah 7 ile gece 01:00 arası izinli (01:00 - 06:59 arası sessiz)
     if 1 <= current_hour < 7:
         print(f"[{now.strftime('%H:%M:%S')}] Sessizlik modu aktif, işlem atlandı.")
         return
 
-    print("Gemini 2.5 Flash anonim fenomen (shitposter) modunda gündemi tarıyor...")
+    print("Ceminay sevdiğin eski prompt ve canlı aramayla gündemi tarıyor...")
 
     try:
+        # Sistem çökmesin diye arka plandaki teknik JSON talimatı
         system_instruction = (
-            "Sen çok takipçili, anonim, umursamaz, her şeyle dalga geçen ve ince ironi yapan bir X (Twitter) fenomenisin. "
-            "GÖREVİN: Tamamen organik, yapay zeka kokmayan 6 farklı tweet üretmek.\n\n"
-            "TWITTER (X) JARGONU VE ÜSLUP KURALLARI:\n"
-            "- 'Şunu fark ettiniz mi?', 'Görünüşe göre', 'Meğer', 'İşte günün olayı' gibi yapay zeka kalıpları KESİNLİKLE YASAK.\n"
-            "- Aforizma kasma, felsefe yapma. Sadece olayın en saçma detayını bul ve tek cümleyle lafı sok.\n"
-            "- CÜMLE YAPISI: TDK kurallarını boşver.  Cümle sonlarına nokta koymamak daha organik durur. "
-            "Ünlem (!) işaretini veya emojileri kullanma (ya da sadece ironi için çok nadir kullan).\n"
-            "- İnsanlar seni zekan, vurdumduymazlığın ve konulara olan iğneleyici bakış açın için takip ediyor.\n"
-            "- KESİNLİKLE hashtag (#) kullanma.\n"
-            "- Her bir tweet metni KESİNLİKLE EN FAZLA 22 KELİME uzunluğunda olmalıdır.\n\n"
-            "ÇIKTI FORMATI:\n"
-            "Cevabın SADECE VE SADECE geçerli bir JSON array (liste) formatında olmalıdır. Başka hiçbir açıklama ekleme.\n")
+            "ÇIKTI FORMATI: Uygulamanın bozulmaması için cevabın SADECE VE SADECE geçerli bir JSON array (liste) formatında olmalıdır. "
+            "Başka hiçbir açıklama, giriş veya kapanış cümlesi ekleme.\n"
+            'Örnek Çıktı: ["tweet 1", "tweet 2", "tweet 3", "tweet 4", "tweet 5", "tweet 6"]'
+        )
 
+        # Düzenlenen eski başarılı promptun
         prompt = (
-            "Google üzerinden şu an Türkiye sosyal medyasında gerçekten konuşulan (X/Twitter, Ekşi Sözlük, popüler magazin/spor olayı) "
-            "güncel konuları tarat. İnsanların linçlediği, güldüğü veya tartıştığı absürt durumları bul.\n"
-            "shitpost yapan zeki bir hesabın klavyesinden çıkmış gibi 6 farklı tweet yaz. Kısa, noktalama işaretsiz, küçük harfli ve organik olsun."
+            "Şu anki gerçek Türkiye ve dünya gündemini, sosyal medyada yapay veya bot hesaplarca şişirilmemiş, "
+            "insanların gerçekten konuştuğu somut ve gerçek konuları analiz et. "
+            "Bu konulardan beslenerek; son derece esprili, muzip, ironik, akıl dolu ve zeki TAM 6 FARKLI tweet üret.\n\n"
+            "Kural 1: Her bir tweet kesinlikle EN FAZLA 21 KELİME olsun.\n"
+            "Kural 2: Yapay zeka gibi kokmasın, samimi ve sarkastik bir insan yazmış gibi olsun.\n"
+            "Kural 3: Hashtag (#) kullanma veya çok nadir, espriye dahilse kullan.\n"
+            "Sadece tweet metnilerini döndür, başında veya sonunda başka açıklama olmasın."
         )
 
         response = client_gemini.models.generate_content(
@@ -84,13 +83,15 @@ def fetch_and_send_to_telegram():
 
         current_tweets = json.loads(clean_text)
 
-        msg_text = "✨ *Ceminay Fenomen Modunda Taradı!*\n\n"
-        msg_text += "🚀 Direkt paylaşmak için butonları kullanabilirsin.\n"
-        msg_text += "✏️ *Düzenlemek istersen:* Sohbete sadece düzenlemek istediğin tweetin numarasını (örn: 2) yazıp yolla.\n\n"
+        # Telegram menüsü
+        msg_text = "✨ *Ceminay Seçenekleri Hazırladı!*\n\n"
+        msg_text += "🚀 Paylaşmak için butonları kullanabilirsin.\n"
+        msg_text += "✏️ *Düzenlemek istersen:* Sohbete sadece tweetin numarasını (örn: 2) yazıp yolla.\n\n"
         
         for i, t in enumerate(current_tweets):
             msg_text += f"*{i+1}. Seçenek:*\n{t}\n\n"
 
+        # 6 Butonlu tasarım
         markup = InlineKeyboardMarkup()
         markup.row(
             InlineKeyboardButton("1️⃣", callback_data="tweet_0"),
@@ -105,7 +106,7 @@ def fetch_and_send_to_telegram():
         markup.row(InlineKeyboardButton("❌ Hiçbirini Beğenmedim (İptal)", callback_data="cancel"))
 
         tg_bot.send_message(TELEGRAM_CHAT_ID, msg_text, reply_markup=markup, parse_mode="Markdown")
-        print("Telegram'a 6 fenomen tarzı seçenek gönderildi.")
+        print("Telegram'a 6 eski usul seçenek başarıyla gönderildi.")
 
     except Exception as e:
         error_msg = f"⚠️ Gemini'den veri çekerken hata oluştu:\n{e}"
@@ -198,7 +199,7 @@ if __name__ == "__main__":
     
     start_time = now + timedelta(seconds=10)
         
-    print(f"Ceminay Fenomen Modu Aktif! İlk üretim saati: {start_time.strftime('%H:%M:%S')}")
+    print(f"Ceminay Klasik Modda Başladı! İlk üretim saati: {start_time.strftime('%H:%M:%S')}")
 
     scheduler = BackgroundScheduler(timezone=tz)
     scheduler.add_job(
