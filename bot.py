@@ -12,7 +12,7 @@ from google.genai import types
 from apscheduler.schedulers.background import BackgroundScheduler
 
 # 1. Ortam Değişkenleri
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+EMINI_API_KEY = os.getenv("eEMINI_API_KEY")
 TWITTER_API_KEY = os.getenv("TWITTER_API_KEY")
 TWITTER_API_SECRET = os.getenv("TWITTER_API_SECRET")
 TWITTER_ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN")
