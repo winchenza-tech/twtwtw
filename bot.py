@@ -1,6 +1,6 @@
 import os
 import time
-from datetime import datetime, time as datetime_time
+from datetime import datetime, timezone, timedelta, time as datetime_time
 import tweepy
 from google import genai
 import requests
@@ -41,16 +41,19 @@ def send_telegram_notification(message):
         print(f"Telegram bildirimi gönderilemedi: {e}")
 
 def is_active_hours():
-    """Botun 09:00 ile 00:30 saatleri arasında olup olmadığını kontrol eder."""
-    now = datetime.now().time()
+    """Botun Türkiye saatine (UTC+3) göre 09:00 ile 00:30 arasında olup olmadığını kontrol eder."""
+    # Railway sunucu saati ne olursa olsun, Türkiye saatini hesaplar
+    turkey_tz = timezone(timedelta(hours=3))
+    now_trt = datetime.now(turkey_tz).time()
+    
     start_time = datetime_time(9, 0)
     end_time = datetime_time(0, 30)
     
     # Gece yarısını geçen zaman aralığı kontrolü
     if start_time <= end_time:
-        return start_time <= now <= end_time
+        return start_time <= now_trt <= end_time
     else:
-        return now >= start_time or now <= end_time
+        return now_trt >= start_time or now_trt <= end_time
 
 def generate_ordu_tweet():
     """Belirlenen gelişmiş kurallara göre mizahi, ironik ve doğal bir tweet üretir."""
@@ -79,7 +82,7 @@ def generate_ordu_tweet():
 
 def main():
     print("Ordu Tweet Botu Başlatıldı...")
-    send_telegram_notification("🤖 Bot başarıyla başlatıldı! Her 145 dakikada bir (09:00 - 00:30 arasında) yeni sistem talimatıyla tweet atılacak.")
+    send_telegram_notification("🤖 Bot başarıyla başlatıldı! Türkiye saatine göre 09:00 - 00:30 arasındaysak ilk tweet şimdi atılıyor...")
     
     interval_minutes = 145
     
@@ -104,7 +107,7 @@ def main():
             # 145 dakika bekle
             time.sleep(interval_minutes * 60)
         else:
-            print("Bot şu an aktif saatler dışındadır (00:30 - 09:00). 15 dakika boyunca uykuya geçiliyor...")
+            print("Bot şu an aktif saatler dışındadır (TR saatiyle 00:30 - 09:00). 15 dakika boyunca uykuya geçiliyor...")
             # Aktif saatlerin dışındayken sistemi yormamak için kısa aralıklarla kontrol et
             time.sleep(15 * 60)
 
