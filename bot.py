@@ -2,7 +2,7 @@ import os
 import time
 from datetime import datetime, time as datetime_time
 import tweepy
-import google.generativeai as genai
+from google import genai
 import requests
 
 # 1. Çevre Değişkenlerinin Yüklenmesi
@@ -25,9 +25,8 @@ x_client = tweepy.Client(
     access_token_secret=X_ACCESS_SECRET
 )
 
-# Gemini AI Kurulumu
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-pro')
+# Gemini AI Kurulumu (Güncel Yapı)
+client_gemini = genai.Client(api_key=GEMINI_API_KEY)
 
 def send_telegram_notification(message):
     """Telegram üzerinden kullanıcıya bilgi mesajı gönderir."""
@@ -69,7 +68,10 @@ def generate_ordu_tweet():
     """
     
     try:
-        response = model.generate_content(prompt)
+        response = client_gemini.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
+        )
         return response.text.strip().replace('"', '')
     except Exception as e:
         print(f"Tweet üretilirken hata oluştu: {e}")
