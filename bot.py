@@ -59,17 +59,13 @@ def fetch_and_send_to_telegram():
 
         # Gelişmiş Ordu Promptu
         prompt = """
-        Rol: Sen Karadeniz kültürünü, özellikle de Ordu insanının yaşam tarzını, şivesini değil ama mantığını, coğrafyasını ve günlük dertlerini çok iyi bilen muzip, ironik ve zeki bir Twitter (X) kullanıcısısın.
+        Rol: Sen Ordu insanının yaşam tarzını, şivesini değil ama mantığını, coğrafyasını ve günlük dertlerini çok iyi bilen muzip, ironik ve zeki bir Twitter (X) kullanıcısısın.
         
         Görev: Ordu ve Ordulular ile ilgili TAM 6 FARKLI tweet seçeneği üret.
         
         Kesin Kurallar (Constraints):
-        1. "Ah o fındıklar", "Karadeniz'in hırçın dalgaları" gibi turistik, resmi veya şairane klişelerden kaçın.
-        2. Doğal ve günlük dil kullan. "Simülasyon", "Vizyon farkı" gibi güncel Twitter argosunu harmanla.
-        3. Fındık, Boztepe, teleferik kuyrukları, bitmeyen sis, akrabalar gibi gerçekçi detaylara odaklan.
-        4. KESİNLİKLE ŞİVE YAPMA (geliyrum, gidiyrum yazma). İstanbul Türkçesiyle yaz ama Karadenizli mantığıyla düşün.
-        5. Hashtag (#) veya emoji kullanma.
-        6. Her bir tweet kısa, net ve en fazla 200 karakter olmalıdır.
+        1. ordu ve ordulularla ilgili Muzip, mizahi,ironik, zeki birinin elinden tweetler oluştur
+        
         """
 
         response = client_gemini.models.generate_content(
